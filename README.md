@@ -1,35 +1,51 @@
 # MemCodex
 
-A thin, runnable reference implementation of **MemCodex: Self-Programming
-Hierarchical Memory for Language Agents** (arXiv:2609.39765v1, Wang & Liu,
-University of Montreal).
+A runnable implementation of the **MemCodex** system from
+[arXiv:2609.39765](https://arxiv.org/abs/2609.39765) — a 3-layer memory
+(Summary / Relational / Episode), query-adaptive reading with an explicit
+token budget, and a self-programming loop in which a meta-program rewrites
+the memory program's layer prompts and children are accepted only when they
+beat their parent (Eq.4).
 
-The paper's claim in one sentence: *memory is a program*. Instead of fixed
-retrieval pipelines, MemCodex lets a language agent **compile memory into
-hierarchical "layer programs" (construct / index / retrieve) and then
-rewrite those programs itself** to maximize answer accuracy under a token
-budget.
+## Paper
 
-## What this repo implements
+> MemCodex, arXiv:2609.39765.
+> <https://arxiv.org/abs/2609.39765>
 
-| Paper object | Where |
+BibTeX:
+
+```bibtex
+@misc{memcodex2026,
+  title  = {MemCodex},
+  author = {Wang and others},
+  year   = {2026},
+  eprint = {2609.39765},
+  archivePrefix = {arXiv},
+  primaryClass  = {cs.CL},
+  url    = {https://arxiv.org/abs/2609.39765}
+}
+```
+
+What this repo implements:
+
+| Paper component | Where |
 |---|---|
-| Layer interface (construct / index / retrieve) | `memcodex/layers.py` |
-| Content channel + routing channel | `memcodex/layers.py` (BM25 over records and over layer-routed query rewrites) |
-| QueryAdaptiveRead (Algorithm 1, token-budgeted adaptive read) | `memcodex/read.py` |
-| ProgramEvolve (Algorithm 2) with Eq.4 acceptance | `memcodex/evolve.py` |
-| Arena + baselines (direct, flat-retrieval) | `memcodex/arena.py` |
-| Token heuristics, episode records | `memcodex/records.py` |
-
-Self-programming in this implementation = the meta-agent rewrites each
-layer's prompt (and layer composition), not the structural Python methods.
-That keeps the loop auditable and the whole system a small, readable codebase.
+| 3-layer memory program (Summary / Relational / Episode) | `memcodex/layers.py` |
+| Query-adaptive read under a token budget | `memcodex/read.py` |
+| Arena: direct / flat-retrieval / MemCodex baselines, token-F1 scoring | `memcodex/arena.py` |
+| Self-programming: Algorithm 2 (mutate -> evaluate -> accept) + Eq.4 | `memcodex/evolve.py` |
+| CLI: `demo` and `evolve` | `memcodex/cli.py` |
 
 ## Design notes
 
 - **No heavyweight deps**: `requests` + Python stdlib only. No LangChain /
   LlamaIndex / vector DB. BM25 stands in for the paper's retriever so the
   token-budget semantics stay exact and testable offline.
+- **Self-programing = prompt rewriting, not structural mutation.** The
+  meta-program rewrites the layer prompt texts; children are accepted when
+  they improve accuracy over the parent (ties broken by lower token usage).
+  This keeps the loop auditable and the whole system a small, readable
+  codebase.
 - **Lazy-loading, thin context**: every module is self-contained; the LLM
   client is a plain OpenAI-compatible HTTP call.
 - **Deterministic tests** run against a fake LLM (`tests/fake_llm.py`), so
@@ -45,35 +61,31 @@ Requires Python 3.10+.
 
 ## Quick start (local LLM)
 
-Point it at any OpenAI-compatible endpoint (e.g. the local Qwen server on
-this machine):
+Point it at any OpenAI-compatible endpoint (verified on this machine with
+the local Qwen server):
 
 ```bash
-export MEMCODEX_LLM_BASE_URL=http://127.0.0.1:18200/v1
+export MEMCODEX_LLM_BASE_URL=http://127.0.7.0.1:1820/v1
 export MEMCODEX_LLM_API_KEY=local
 export MEMCODEX_LLM_MODEL=Qwen3.8-27B-GSQ-RCO-IQ3_S-mtp.gguf
 python -m memcodex demo
 ```
 
-Expected output (demo dataset, 9 questions):
+Note: the demo on the bundled 6-question sample is a smoke test, not a
+superiority claim — on that small sample the direct baseline can be
+competitive. Run `evolve` with a real dataset and more rounds for the
+intended comparison.
 
-```
-system         acc  tokens/q     ms/q
-direct      ...
-flat        ...
-memcodex    ...
-```
-
-## Evolution loop
+## Self-programming (evolve)
 
 ```bash
-python -m memcodex evolve --rounds 2 --children 2
+python -m memcodex evolve --rounds 4 --children 3 --archive archive.jsonl
 ```
 
-Runs ProgramEvolve: for each generation the meta-agent produces `children`
-candidate programs (rewritten layer prompts), each is evaluated on the
-training split in the arena, and candidates that beat their parent under the
-Eq.4 acceptance rule are appended to the archive (`archive.jsonl`).
+Each round: candidate programs (rewritten layer prompts) are generated,
+evaluated on the training split in the arena, and candidates that beat their
+parent under the Eq.4 acceptance rule are appended to the archive
+(`archive.jsonl`).
 
 ## Configuration
 
@@ -91,30 +103,8 @@ Eq.4 acceptance rule are appended to the archive (`archive.jsonl`).
 python tests/run.py
 ```
 
-9/9 offline (fake LLM, no network required).
-
-## Dataset format
-
-`examples/demo_dataset/episodes.json`:
-
-```json
-[
-  {
-    "name": "episode_1",
-    "records": ["...one fact per record..."],
-    "questions": [{"text": "...", "answer": "..."}]
-  }
-]
-```
-
-## Scope & limitations
-
-- Faithful to the paper's *structure* (layer programs, adaptive read,
-  evolution loop, arena); the retrieval kernel is BM25, not the paper's
-  full retriever.
-- Eq.4 acceptance is implemented as "beat parent accuracy, tie-break by
-  lower tokens".
-- Single-process, single-endpoint; no distributed evolution.
+12 tests (layers / read / acceptance / evolve), all offline, no pytest
+dependency.
 
 ## License
 
