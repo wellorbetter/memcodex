@@ -1,0 +1,30 @@
+﻿[
+  {
+    "name": "team_meeting",
+    "records": [
+      "2026-07-01: Alice assigned Bob to lead the Q3 search benchmark workstream.",
+      "2026-07-02: Bob reported that the flat retrieval baseline scores 0.41 token F1.",
+      "2026-07-03: The team agreed the prototype would use local Qwen for evaluation.",
+      "2026-07-04: Carol joined the search workstream as reviewer."
+    ],
+    "questions": [
+      {"text": "Who did Alice assign to lead the Q3 search benchmark workstream?", "answer": "Bob"},
+      {"text": "What token F1 did the flat retrieval baseline score?", "answer": "0.41"},
+      {"text": "What would the prototype use for evaluation?", "answer": "local Qwen"}
+    ]
+  },
+  {
+    "name": "release_notes",
+    "records": [
+      "v2.1 added hierarchical memory with adaptive budgeted reads.",
+      "v2.1 fixed a token budget overflow in the summary layer.",
+      "v2.2 introduces an evolution loop for memory programs.",
+      "v2.2 raises the default token budget to 2048."
+    ],
+    "questions": [
+      {"text": "What did v2.2 introduce?", "answer": "an evolution loop"},
+      {"text": "What did v2.1 add?", "answer": "hierarchical memory"},
+      {"text": "What is the default token budget in v2.2?", "answer": "2048"}
+    ]
+  }
+]
